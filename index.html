@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Particle Motion with Parameter c</title>
+  <style>
+    :root {
+      --ink: #111722;
+      --muted: #596171;
+      --line: #8d9096;
+      --track: #e89caf;
+      --red: #ef3e52;
+      --purple: #6d3aa0;
+      --spring: #6076b4;
+      --block: #c96691;
+      --block-edge: #bd2f69;
+      --floor: #e8edf6;
+      --rail: #5f73ad;
+      --panel: #ffffff;
+      --gray: #9ea1a8;
+      --gray-dark: #33363d;
+      --shadow: rgba(17, 23, 34, 0.16);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background: #f7f8fa;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+
+    main {
+      width: min(1200px, calc(100vw - 24px));
+      margin: 0 auto;
+      padding: 12px 0 24px;
+    }
+
+    .prompt {
+      margin: 0 0 14px;
+      font-size: clamp(1.18rem, 2.3vw, 2rem);
+      line-height: 1.34;
+    }
+
+    .math {
+      font-style: italic;
+      white-space: nowrap;
+    }
+
+    .applet {
+      overflow: hidden;
+      border: 2px solid var(--line);
+      background: var(--panel);
+      box-shadow: 0 16px 42px var(--shadow);
+    }
+
+    .scene {
+      position: relative;
+      height: clamp(350px, 41vw, 430px);
+      min-height: 350px;
+      background: #ffffff;
+    }
+
+    .floor {
+      position: absolute;
+      inset: 33% 0 0;
+      background: var(--floor);
+      border-top: 3px solid var(--rail);
+    }
+
+    .wall {
+      position: absolute;
+      left: 0;
+      top: 13%;
+      width: 12px;
+      height: 21%;
+      background: linear-gradient(90deg, #7384b6, #536aa9);
+      border-radius: 0 4px 4px 0;
+    }
+
+    .spring-svg {
+      position: absolute;
+      left: 8px;
+      top: calc(33% - 96px);
+      width: var(--spring-width);
+      height: 92px;
+      overflow: visible;
+      z-index: 2;
+    }
+
+    .block {
+      position: absolute;
+      left: var(--block-left);
+      top: calc(33% - 104px);
+      width: clamp(112px, 14vw, 152px);
+      height: clamp(86px, 10vw, 108px);
+      border: 5px solid var(--block-edge);
+      background: var(--block);
+      z-index: 3;
+    }
+
+    .particle-dot,
+    .fixed-dot {
+      position: absolute;
+      width: 23px;
+      aspect-ratio: 1;
+      top: 33%;
+      transform: translate(-50%, -50%);
+      border: 3px solid #151515;
+      border-radius: 50%;
+      background: var(--purple);
+      z-index: 5;
+    }
+
+    .particle-dot {
+      left: var(--particle-x);
+    }
+
+    .fixed-dot {
+      left: var(--origin-x);
+    }
+
+    .label-p {
+      position: absolute;
+      left: calc(var(--origin-x) - 9px);
+      top: calc(33% + 12px);
+      color: var(--purple);
+      font: 700 1.05rem Arial, Helvetica, sans-serif;
+    }
+
+    .time-readout {
+      position: absolute;
+      right: clamp(26px, 5vw, 58px);
+      bottom: 126px;
+      color: var(--red);
+      font: 800 clamp(1.15rem, 2.7vw, 1.95rem) Arial, Helvetica, sans-serif;
+      text-shadow:
+        -1px -1px 0 #fff,
+        1px -1px 0 #fff,
+        -1px 1px 0 #fff,
+        1px 1px 0 #fff;
+      z-index: 6;
+    }
+
+    .formula {
+      position: absolute;
+      right: clamp(24px, 21vw, 360px);
+      bottom: 53px;
+      color: #3c3f48;
+      font-size: clamp(1.28rem, 2.7vw, 2.25rem);
+      font-weight: 700;
+      text-shadow: 0 1px 0 #ffffff;
+      white-space: nowrap;
+      z-index: 5;
+    }
+
+    .controls {
+      position: absolute;
+      left: clamp(56px, 7.5vw, 92px);
+      right: clamp(62px, 6vw, 84px);
+      bottom: 98px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 18px;
+      z-index: 7;
+    }
+
+    .c-controls {
+      position: absolute;
+      left: clamp(56px, 7.5vw, 92px);
+      bottom: 44px;
+      width: min(410px, calc(100vw - 170px));
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 16px;
+      z-index: 7;
+    }
+
+    .slider {
+      appearance: none;
+      width: 100%;
+      height: 34px;
+      margin: 0;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .slider::-webkit-slider-runnable-track {
+      height: 10px;
+      border-radius: 999px;
+      background: var(--track);
+      box-shadow: inset 0 0 0 1px rgba(190, 47, 105, 0.08);
+    }
+
+    .slider::-moz-range-track {
+      height: 10px;
+      border-radius: 999px;
+      background: var(--track);
+      box-shadow: inset 0 0 0 1px rgba(190, 47, 105, 0.08);
+    }
+
+    .slider::-webkit-slider-thumb {
+      appearance: none;
+      width: 35px;
+      height: 35px;
+      margin-top: -13px;
+      border: 4px solid #141820;
+      border-radius: 50%;
+      background: var(--red);
+      box-shadow: 0 0 0 8px rgba(239, 62, 82, 0.23);
+    }
+
+    .slider::-moz-range-thumb {
+      width: 27px;
+      height: 27px;
+      border: 4px solid #141820;
+      border-radius: 50%;
+      background: var(--red);
+      box-shadow: 0 0 0 8px rgba(239, 62, 82, 0.23);
+    }
+
+    .slider.c-slider::-webkit-slider-runnable-track {
+      background: var(--gray);
+    }
+
+    .slider.c-slider::-moz-range-track {
+      background: var(--gray);
+    }
+
+    .slider.c-slider::-webkit-slider-thumb {
+      background: var(--gray-dark);
+      box-shadow: 0 0 0 8px rgba(30, 33, 40, 0.18);
+    }
+
+    .slider.c-slider::-moz-range-thumb {
+      background: var(--gray-dark);
+      box-shadow: 0 0 0 8px rgba(30, 33, 40, 0.18);
+    }
+
+    button {
+      display: inline-grid;
+      place-items: center;
+      width: 46px;
+      aspect-ratio: 1;
+      border: 0;
+      border-radius: 50%;
+      color: #151922;
+      background: #fff;
+      box-shadow: inset 0 0 0 2px rgba(17, 23, 34, 0.17), 0 8px 20px var(--shadow);
+      cursor: pointer;
+    }
+
+    button svg {
+      width: 24px;
+      height: 24px;
+      fill: currentColor;
+    }
+
+    button:focus-visible,
+    input:focus-visible {
+      outline: 3px solid rgba(109, 58, 160, 0.32);
+      outline-offset: 4px;
+    }
+
+    .readouts {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      border-top: 1px solid rgba(141, 144, 150, 0.58);
+      background: rgba(141, 144, 150, 0.42);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .metric {
+      min-width: 0;
+      padding: 11px 15px 12px;
+      background: #fff;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 5px;
+      color: var(--ink);
+      font-size: clamp(1rem, 1.7vw, 1.32rem);
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 760px) {
+      main {
+        width: min(100vw - 14px, 1200px);
+        padding-top: 8px;
+      }
+
+      .prompt {
+        font-size: clamp(1rem, 4.8vw, 1.45rem);
+      }
+
+      .scene {
+        height: 410px;
+      }
+
+      .formula {
+        right: 18px;
+        bottom: 52px;
+        font-size: 1.22rem;
+      }
+
+      .controls {
+        left: 42px;
+        right: 36px;
+      }
+
+      .c-controls {
+        left: 42px;
+        width: calc(100vw - 120px);
+      }
+
+      .readouts {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .readouts {
+        grid-template-columns: 1fr;
+      }
+
+      .metric strong {
+        white-space: normal;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="prompt">
+      Using the applet below, you can explore the movement of the particle for different values of the parameter
+      <span class="math">c</span> in the equation
+      <span class="math">s(t)=e<sup>-t</sup>+cte<sup>-t</sup>.</span>
+    </p>
+
+    <section class="applet" aria-label="Particle motion applet with parameter c">
+      <div class="scene" id="scene">
+        <div class="floor"></div>
+        <div class="wall"></div>
+
+        <svg class="spring-svg" id="spring" viewBox="0 0 320 92" preserveAspectRatio="none" aria-hidden="true">
+          <path id="springPath" d="" fill="none" stroke="var(--spring)" stroke-width="5" stroke-linecap="round"/>
+        </svg>
+
+        <div class="block" id="block" aria-hidden="true"></div>
+        <div class="particle-dot" aria-label="Particle"></div>
+        <div class="fixed-dot" aria-label="Fixed point P"></div>
+        <div class="label-p">P</div>
+
+        <div class="time-readout" id="timeReadout">t = 0</div>
+        <div class="controls">
+          <input class="slider time-slider" id="timeSlider" type="range" min="0" max="10" step="0.01" value="0" aria-label="Time in seconds">
+          <button type="button" id="playPause" aria-label="Play">
+            <svg id="playIcon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 5v14l11-7z"></path>
+            </svg>
+          </button>
+        </div>
+
+        <div class="c-controls">
+          <input class="slider c-slider" id="cSlider" type="range" min="0.1" max="4" step="0.01" value="0.5" aria-label="Parameter c">
+          <button type="button" id="reset" aria-label="Reset">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5a7 7 0 1 1-6.32 4H3l4-4 4 4H8.11A4.98 4.98 0 1 0 12 7V5z"></path>
+            </svg>
+          </button>
+        </div>
+
+        <div class="formula" id="formula">s(t) = e<sup>-t</sup> + 0.5te<sup>-t</sup></div>
+      </div>
+
+      <div class="readouts" aria-live="polite">
+        <div class="metric">
+          <span>Parameter</span>
+          <strong id="cReadout">c = 0.5</strong>
+        </div>
+        <div class="metric">
+          <span>Displacement</span>
+          <strong id="sReadout">1 m</strong>
+        </div>
+        <div class="metric">
+          <span>Velocity</span>
+          <strong id="vReadout">-0.5 m/s</strong>
+        </div>
+        <div class="metric">
+          <span>At Rest</span>
+          <strong id="restReadout">no time t &gt; 0</strong>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const root = document.documentElement;
+    const scene = document.getElementById("scene");
+    const springPath = document.getElementById("springPath");
+    const timeSlider = document.getElementById("timeSlider");
+    const cSlider = document.getElementById("cSlider");
+    const timeReadout = document.getElementById("timeReadout");
+    const cReadout = document.getElementById("cReadout");
+    const sReadout = document.getElementById("sReadout");
+    const vReadout = document.getElementById("vReadout");
+    const restReadout = document.getElementById("restReadout");
+    const formula = document.getElementById("formula");
+    const playPause = document.getElementById("playPause");
+    const playIcon = document.getElementById("playIcon");
+    const reset = document.getElementById("reset");
+
+    let playing = false;
+    let lastFrame = null;
+
+    function displacement(t, c) {
+      return Math.exp(-t) * (1 + c * t);
+    }
+
+    function velocity(t, c) {
+      return Math.exp(-t) * (c - 1 - c * t);
+    }
+
+    function fmt(value, places = 2) {
+      if (Math.abs(value) < 0.005) return "0";
+      return Number(value.toFixed(places)).toString();
+    }
+
+    function drawSpring(width) {
+      const coils = 18;
+      const start = 4;
+      const end = 320;
+      const mid = 46;
+      const amp = 26;
+      const step = (end - start) / (coils * 2);
+      let d = `M ${start} ${mid}`;
+
+      for (let i = 1; i <= coils * 2; i += 1) {
+        const x = start + i * step;
+        const y = i % 2 === 0 ? mid + amp : mid - amp;
+        d += ` L ${x.toFixed(2)} ${y}`;
+      }
+
+      d += ` L ${end} ${mid}`;
+      springPath.setAttribute("d", d);
+    }
+
+    function setPlayIcon() {
+      playPause.setAttribute("aria-label", playing ? "Pause" : "Play");
+      playIcon.innerHTML = playing
+        ? '<path d="M7 5h4v14H7zM13 5h4v14h-4z"></path>'
+        : '<path d="M8 5v14l11-7z"></path>';
+    }
+
+    function update() {
+      const t = Number(timeSlider.value);
+      const c = Number(cSlider.value);
+      const s = displacement(t, c);
+      const v = velocity(t, c);
+      const rect = scene.getBoundingClientRect();
+      const width = rect.width || 1000;
+      const originX = width * 0.50;
+      const scale = Math.min(width * 0.25, 235);
+      const particleX = originX + s * scale;
+      const blockLeft = particleX;
+      const springWidth = Math.max(58, blockLeft - 8);
+
+      root.style.setProperty("--origin-x", `${originX}px`);
+      root.style.setProperty("--particle-x", `${particleX}px`);
+      root.style.setProperty("--block-left", `${blockLeft}px`);
+      root.style.setProperty("--spring-width", `${springWidth}px`);
+      drawSpring(springWidth);
+
+      timeReadout.textContent = `t = ${fmt(t)}`;
+      cReadout.textContent = `c = ${fmt(c)}`;
+      sReadout.textContent = `${fmt(s, 3)} m`;
+      vReadout.textContent = `${fmt(v, 3)} m/s`;
+      formula.innerHTML = `s(t) = e<sup>-t</sup> + ${fmt(c)}te<sup>-t</sup>`;
+
+      if (c > 1) {
+        restReadout.textContent = `t = ${fmt((c - 1) / c, 3)} s`;
+      } else if (Math.abs(c - 1) < 0.005) {
+        restReadout.textContent = "t = 0 s only";
+      } else {
+        restReadout.textContent = "no time t > 0";
+      }
+    }
+
+    function animate(timestamp) {
+      if (!playing) return;
+      if (lastFrame === null) lastFrame = timestamp;
+      const dt = (timestamp - lastFrame) / 1000;
+      lastFrame = timestamp;
+      const next = Math.min(Number(timeSlider.value) + dt * 0.85, Number(timeSlider.max));
+      timeSlider.value = next.toFixed(2);
+      update();
+
+      if (next >= Number(timeSlider.max)) {
+        playing = false;
+        lastFrame = null;
+        setPlayIcon();
+        return;
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    timeSlider.addEventListener("input", () => {
+      playing = false;
+      lastFrame = null;
+      setPlayIcon();
+      update();
+    });
+
+    cSlider.addEventListener("input", update);
+
+    playPause.addEventListener("click", () => {
+      if (Number(timeSlider.value) >= Number(timeSlider.max)) timeSlider.value = "0";
+      playing = !playing;
+      lastFrame = null;
+      setPlayIcon();
+      update();
+      if (playing) requestAnimationFrame(animate);
+    });
+
+    reset.addEventListener("click", () => {
+      playing = false;
+      lastFrame = null;
+      timeSlider.value = "0";
+      cSlider.value = "0.5";
+      setPlayIcon();
+      update();
+    });
+
+    window.addEventListener("resize", update);
+    setPlayIcon();
+    update();
+  </script>
+</body>
+</html>
